@@ -1,0 +1,12 @@
+D:\save-0\dustbin\Sharp-Test\Zwift-CIQ-RC-Relay\bin\Debug\Zwift-CIQ-RC-Relay.exe.config
+D:\save-0\dustbin\Sharp-Test\Zwift-CIQ-RC-Relay\bin\Debug\Zwift-CIQ-RC-Relay.exe
+D:\save-0\dustbin\Sharp-Test\Zwift-CIQ-RC-Relay\bin\Debug\Zwift-CIQ-RC-Relay.pdb
+D:\save-0\dustbin\Sharp-Test\Zwift-CIQ-RC-Relay\obj\Debug\Zwift-CIQ-RC-Relay.csprojResolveAssemblyReference.cache
+D:\save-0\dustbin\Sharp-Test\Zwift-CIQ-RC-Relay\obj\Debug\Zwift-CIQ-RC-Relay.exe
+D:\save-0\dustbin\Sharp-Test\Zwift-CIQ-RC-Relay\obj\Debug\Zwift-CIQ-RC-Relay.pdb
+D:\save-0\dustbin\Sharp-Test\Zwift-CIQ-RC-Relay\bin\Debug\ANT+ProfileLib.dll
+D:\save-0\dustbin\Sharp-Test\Zwift-CIQ-RC-Relay\bin\Debug\ANT_NET.dll
+D:\save-0\dustbin\Sharp-Test\Zwift-CIQ-RC-Relay\bin\Debug\Fit.dll
+D:\save-0\dustbin\Sharp-Test\Zwift-CIQ-RC-Relay\bin\Debug\InputSimulator.dll
+D:\save-0\dustbin\Sharp-Test\Zwift-CIQ-RC-Relay\bin\Debug\InputSimulator.pdb
+D:\save-0\dustbin\Sharp-Test\Zwift-CIQ-RC-Relay\bin\Debug\InputSimulator.xml
