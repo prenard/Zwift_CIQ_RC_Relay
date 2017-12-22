@@ -31,77 +31,69 @@ namespace Zwift_CIQ_RC_Relay
         static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
 		
 		[DllImport("user32.dll", SetLastError = true)]
-		static extern void keybd_event(byte bVk, byte bScan, int dwFlags, int dwExtraInfo); 		
-[DllImport("user32.dll")]
-public static extern short VkKeyScan(char ch);
-[DllImport("user32.dll", SetLastError = true)]
-public static extern IntPtr GetMessageExtraInfo();		
-	
+		private static extern uint SendInput(uint numberOfInputs, INPUT[] inputs, int sizeOfInputStructure);
+
+		// Structures for sendinput
 		
-[DllImport("user32.dll", SetLastError = true)]
-private static extern uint SendInput(uint numberOfInputs, INPUT[] inputs, int sizeOfInputStructure);
-
-[DllImport("user32.dll")]
-private static extern int RegisterHotKey(IntPtr hwnd, int id,int fsModifiers, int vk);
-
-[DllImport("user32.dll")]
-private static extern int UnregisterHotKey(IntPtr hwnd, int id);
-
-        enum KeyModifier
-        {
-            None = 0,
-            Alt = 1,
-            Control = 2,
-            Shift = 4,
-            WinKey = 8
-        }
-
-[StructLayout( LayoutKind.Explicit )]
-    public struct INPUT
-    {
-        [FieldOffset( 0 )]
-        public int type;
-        [FieldOffset( 4 )]
-        public MOUSEINPUT mi;
-        [FieldOffset( 4 )]
-        public KEYBDINPUT ki;
-        [FieldOffset( 4 )]
-        public HARDWAREINPUT hi;
-    }
+		[StructLayout( LayoutKind.Explicit )]
+	    public struct INPUT
+		{
+	        [FieldOffset( 0 )]
+	        public int type;
+	        [FieldOffset( 4 )]
+	        public MOUSEINPUT mi;
+	        [FieldOffset( 4 )]
+	        public KEYBDINPUT ki;
+	        [FieldOffset( 4 )]
+	        public HARDWAREINPUT hi;
+	    }
  
-    [StructLayout( LayoutKind.Sequential )]
-    public struct MOUSEINPUT
-    {
-        public int dx;
-        public int dy;
-        public uint mouseData;
-        public uint dwFlags;
-        public uint time;
-        public IntPtr dwExtraInfo;
-    }
+	    [StructLayout( LayoutKind.Sequential )]
+    	public struct MOUSEINPUT
+    	{
+    	    public int dx;
+    	    public int dy;
+    	    public uint mouseData;
+    	    public uint dwFlags;
+    	    public uint time;
+    	    public IntPtr dwExtraInfo;
+    	}
  
-    [StructLayout( LayoutKind.Sequential )]
-    public struct KEYBDINPUT
-    {
-        public ushort wVk;
-        public ushort wScan;
-        public uint dwFlags;
-        public uint time;
-        public IntPtr dwExtraInfo;
-    }
+    	[StructLayout( LayoutKind.Sequential )]
+    	public struct KEYBDINPUT
+    	{
+    	    public ushort wVk;
+    	    public ushort wScan;
+    	    public uint dwFlags;
+    	    public uint time;
+    	    public IntPtr dwExtraInfo;
+    	}
  
-    [StructLayout( LayoutKind.Sequential )]
-    public struct HARDWAREINPUT
-    {
-        public uint uMsg;
-        public ushort wParamL;
-        public ushort wParamH;
-    }
+    	[StructLayout( LayoutKind.Sequential )]
+    	public struct HARDWAREINPUT
+    	{
+    	    public uint uMsg;
+    	    public ushort wParamL;
+    	    public ushort wParamH;
+    	}
 
+    	[Flags]
+		private enum KeyEventF
+		{
+	    KeyDown = 0x0000,
+	    ExtendedKey = 0x0001,
+	    KeyUp = 0x0002,
+	    Unicode = 0x0004,
+	    ScanCode = 0x0008,
+		}
+    	
+		// End of structutres for sendinput
+		
+		static string ProgramVersion = "Version 00.01";
 	    static bool bDone;
 		static readonly byte USER_ANT_CHANNEL = 0;         // ANT Channel to use
         static ushort USER_DEVICENUM = 0;       // Device number
-        static readonly byte USER_DEVICETYPE = 16;         // Device type = 16 
+        static readonly byte USER_DEVICETYPE = 16;         // Device type = 16 - Generic Remote Control
         static readonly byte USER_TRANSTYPE = 5;           // Transmission type
         static readonly byte USER_RADIOFREQ = 57;          // RF Frequency + 2400 MHz
 		static readonly byte[] USER_NETWORK_KEY = { 0xB9, 0xA5, 0x21, 0xFB, 0xBD, 0x72, 0xC3, 0x45 };
@@ -112,24 +104,9 @@ private static extern int UnregisterHotKey(IntPtr hwnd, int id);
         static GenericControllableDevice genericControllableDevice;
         static Network networkAntPlus = new Network(USER_NETWORK_NUM, USER_NETWORK_KEY, USER_RADIOFREQ);
 
-[Flags]
-private enum KeyEventF
-{
-    KeyDown = 0x0000,
-    ExtendedKey = 0x0001,
-    KeyUp = 0x0002,
-    Unicode = 0x0004,
-    ScanCode = 0x0008,
-}
-public const int KEYEVENTF_EXTENDEDKEY = 0x0001; //Key down flag
-public const int KEYEVENTF_KEYUP = 0x0002; //Key up flag        
-public const int VK_F1 = 0x70;
-		public const int VK_F2 = 0x71;
-		public const int VK_F10 = 0x79;
-
         public static void Main(string[] args)
 		{
-			Console.WriteLine("Zwift Garmin CIQ Remote Control Relay Program");
+			Console.WriteLine("Zwift Garmin CIQ Remote Control Relay Program - " + ProgramVersion);
 
 			try
             {
@@ -138,40 +115,34 @@ public const int VK_F1 = 0x70;
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Demo failed with exception: \n" + ex.Message);
+                Console.WriteLine("Program failed with exception: \n" + ex.Message);
             }
-			
-			// TODO: Implement Functionality Here
-			
-			//Console.Write("Press any key to continue . . . ");
-			//Console.ReadKey(true);
-		}
+
+        }
 
 		static void Init()
         {
             try
             {
-                Console.WriteLine("Attempting to connect to an ANT USB device...");
+                Console.WriteLine("Connecting to ANT USB device...");
                 device0 = new ANT_Device();   // Create a device instance using the automatic constructor (automatic detection of USB device number and baud rate)
                 device0.deviceResponse += new ANT_Device.dDeviceResponseHandler(DeviceResponse);    // Add device response function to receive protocol event messages
                 channel0 = device0.getChannel(USER_ANT_CHANNEL);    // Get channel from ANT device
                 channel0.channelResponse += new dChannelResponseHandler(ChannelResponse);  // Add channel response function to receive channel event messages
-                Console.WriteLine("USB Dongle initialization was successful!");
-                Console.WriteLine("USB Dongle Device Numbe: " + device0.getOpenedUSBDeviceNum());
+                Console.WriteLine("USB Dongle initialization successful");
+                Console.WriteLine("USB Dongle Device Number: " + device0.getOpenedUSBDeviceNum());
                 USER_DEVICENUM =  (ushort) device0.getOpenedUSBDeviceNum();
-                //Console.WriteLine("USB Dongle PID: " + device0.getDeviceUSBPID());
-                //Console.WriteLine("USB Dongle VID: " + device0.getDeviceUSBVID());
             }
             catch (Exception ex)
             {
                 if (device0 == null)    // Unable to connect to ANT
                 {
-                    throw new Exception("Could not connect to any device.\n" +
+                    throw new Exception("Could not connect to any ANT device.\n" +
                     "Details: \n   " + ex.Message);
                 }
                 else
                 {
-                    throw new Exception("Error connecting to ANT: " + ex.Message);
+                    throw new Exception("Error connecting to ANT device: " + ex.Message);
                 }
             }
         }
@@ -202,6 +173,7 @@ public const int VK_F1 = 0x70;
                                 // Quit
                                 Console.WriteLine("Closing Channel");
                                 channel0.closeChannel();
+								System.Threading.Thread.Sleep(1000);
                                 break;
                             }
                         default:
@@ -226,19 +198,19 @@ public const int VK_F1 = 0x70;
         
         private static void ConfigureANT()
         {
-            Console.WriteLine("Resetting module...");
+            Console.WriteLine("Resetting ANT device...");
             device0.ResetSystem();     // Soft reset
             System.Threading.Thread.Sleep(500);    // Delay 500ms after a reset
 
-            Console.WriteLine("Setting network key...");
+            Console.WriteLine("Setting ANT network key...");
             if (device0.setNetworkKey(USER_NETWORK_NUM, USER_NETWORK_KEY, 500))
-                Console.WriteLine("Network key set");
+                Console.WriteLine("ANT network key setting successful");
             else
                 throw new Exception("Error configuring network key");
 
             Console.WriteLine("Setting Channel ID...");
             if (channel0.setChannelID(USER_DEVICENUM, false, USER_DEVICETYPE, USER_TRANSTYPE, 500))  // Not using pairing bit
-                Console.WriteLine("Channel ID set");
+            	Console.WriteLine("Channel ID: " + channel0.getChannelNum());
             else
                 throw new Exception("Error configuring Channel ID");
 
@@ -246,15 +218,11 @@ public const int VK_F1 = 0x70;
             genericControllableDevice.DataPageReceived += GenericControllableDevice_DataPageReceived;
             genericControllableDevice.TurnOn();
             
-//            heartRateDisplay = new HeartRateDisplay(channel0, networkAntPlus);
-//            heartRateDisplay.HeartRateDataReceived += HeartRateDisplay_HeartRateDataReceived;
-//            heartRateDisplay.TurnOn();
         }
         
         private static void GenericControllableDevice_DataPageReceived(DataPage arg1)
         {
               Console.WriteLine("DataPageReceived");
-//            Console.WriteLine("Event " + arg2 + ": " + arg1.HeartRate + " Beats Per Minute");
         }
         
         
@@ -343,6 +311,7 @@ public const int VK_F1 = 0x70;
                                         Console.WriteLine("No_Event_0x00 - " + response.getChannelEventCode());
                                         break;
                                     }
+
                                default:
                                     {
                                         Console.WriteLine("Unhandled Channel Event " + response.getChannelEventCode());
@@ -384,6 +353,163 @@ public const int VK_F1 = 0x70;
 								uint result;
 
 								inputs[0].type = 1; //keyboard
+
+								// Prepare Keyboard Entry !
+
+								kb.time = 0;
+   								kb.dwExtraInfo = IntPtr.Zero;
+   								kb.wVk = (ushort)0x00;
+								
+   								
+   								//
+								// ANT command codes:
+								//
+								// 32768 - Down
+								// 32769 - Up
+								// 32770 - Right
+								// 32771 - Left
+								// 32772 - SpaceBar
+								// 32773 - Enter
+								// 32774 - G
+								// 32775 - ESC
+								// 32776 - Snapshot
+								// 32777 - SwitchView
+								// 32778 - ElbowFlick
+								//
+
+   								ushort key_wScan = 0x50;
+    	    					uint key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
+
+   								switch (CommandNumber)
+   								{
+   									case 32768:
+   										{
+   											key_wScan = 0x50; // Down + Extended (E0)
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode | KeyEventF.ExtendedKey);
+   											break;
+   										}
+   									case 32769:
+   										{
+   											key_wScan = 0x48; // Up + Extended (E0)
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode | KeyEventF.ExtendedKey);
+   											break;
+   										}
+   									case 32770:
+   										{
+   											key_wScan = 0x4d; // Right + Extended (E0)
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode | KeyEventF.ExtendedKey);
+   											break;
+   										}
+   									case 32771:
+   										{
+   											key_wScan = 0x4b; // Left + Extended (E0)
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode | KeyEventF.ExtendedKey);
+   											break;
+   										}
+   									case 32772:
+   										{
+   											key_wScan = 0x39; // SpaceBar
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
+   											break;
+   										}
+   									case 32773:
+   										{
+   											key_wScan = 0x1c; // Enter
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
+   											break;
+   										}
+   									case 32774:
+   										{
+   											key_wScan = 0x22; // G
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
+   											break;
+   										}
+   									case 32775:
+   										{
+   											key_wScan = 0x01; // ESC
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
+   											break;
+   										}
+   									case 32776:
+   										{
+   											key_wScan = 0x44; // F10 - Snapshot
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
+   											break;
+   										}
+   									case 32778:
+   										{
+   											key_wScan = 0x3b; // F1 - ElbowFlick
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
+   											break;
+   										}
+
+   									case 32780:
+   										{
+   											key_wScan = 0x52; // Num 0 - View 0
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
+   											break;
+   										}
+   									case 32781:
+   										{
+   											key_wScan = 0x4f; // Num 1 - View 1
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
+   											break;
+   										}
+   									case 32782:
+   										{
+   											key_wScan = 0x50; // Num 2 - View 2
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
+   											break;
+   										}
+   									case 32783:
+   										{
+   											key_wScan = 0x51; // Num  3 - View 3
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
+   											break;
+   										}
+   									case 32784:
+   										{
+   											key_wScan = 0x4b; // Num 4 - View 4
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
+   											break;
+   										}
+   									case 32785:
+   										{
+   											key_wScan = 0x4c; // Num 5 - View 5
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
+   											break;
+   										}
+   									case 32786:
+   										{
+   											key_wScan = 0x4d; // Num 6 - View 6
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
+   											break;
+   										}
+   									case 32787:
+   										{
+   											key_wScan = 0x47; // Num 7 - View 7
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
+   											break;
+   										}
+   									case 32788:
+   										{
+   											key_wScan = 0x48; // Num 8 - View 8
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
+   											break;
+   										}
+   									case 32789:
+   										{
+   											key_wScan = 0x49; // Num 9 - View 9
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
+   											break;
+   										}
+
+   									default:
+   										{
+   											break;
+   										}
+   								}
+   								
    								//kb.wScan = 0; // hardware scan code for key
 
    								//kb.wScan = 0x01; // Esc
@@ -405,16 +531,14 @@ public const int VK_F1 = 0x70;
    								//kb.wScan = 0x51; // 3 Numeric
    								//kb.wScan = 0x52; // 0 Numeric
 
-   								kb.wScan = 0x50; // Down + Extended
-   					
+   								kb.wScan = key_wScan;
+   								kb.dwFlags = key_dwFlags;
+   								
    								//kb.wScan = 0x32; // M
 
-   								kb.time = 0;
-   								kb.dwExtraInfo = IntPtr.Zero;
    								//kb.dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
-   								kb.dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode | KeyEventF.ExtendedKey);
+   								//kb.dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode | KeyEventF.ExtendedKey);
 
-   								kb.wVk = (ushort)0x00;
 							   	inputs[0].ki = kb;
 
 							   	result = SendInput(1, inputs, Marshal.SizeOf(inputs[0]));
@@ -451,7 +575,7 @@ public const int VK_F1 = 0x70;
         ////////////////////////////////////////////////////////////////////////////////
         static void DeviceResponse(ANT_Response response)
         {
-        	Console.WriteLine("Processing Device Response: " + response.responseID );
+        	//Console.WriteLine("Processing Device Response: " + response.responseID );
         	switch ((ANT_ReferenceLibrary.ANTMessageID)response.responseID)
             {
                 case ANT_ReferenceLibrary.ANTMessageID.STARTUP_MESG_0x6F:
@@ -551,12 +675,13 @@ public const int VK_F1 = 0x70;
         {
             // Print out options
             //
-            Console.WriteLine("M - Print this menu");
+            Console.WriteLine("Available commands:");
+            Console.WriteLine("  M - Print this menu");
+            Console.WriteLine("  Q - Quit");
             //Console.WriteLine("C - Request Capabilities");
             //Console.WriteLine("V - Request Version");
             //Console.WriteLine("I - Request Channel ID");
             //Console.WriteLine("U - Request USB Descriptor");
-            Console.WriteLine("Q - Quit");
         }
         
 	}
