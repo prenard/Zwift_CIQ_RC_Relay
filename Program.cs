@@ -550,6 +550,7 @@ public const int VK_F1 = 0x70;
         static void PrintMenu()
         {
             // Print out options
+            //
             Console.WriteLine("M - Print this menu");
             //Console.WriteLine("C - Request Capabilities");
             //Console.WriteLine("V - Request Version");
