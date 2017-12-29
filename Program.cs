@@ -16,9 +16,9 @@ using System;
 using System.Text;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
-using System.Windows.Forms;
-using System.Threading;
-using WindowsInput;
+//using System.Windows.Forms;
+//using System.Threading;
+//using WindowsInput;
 
 namespace Zwift_CIQ_RC_Relay
 {
@@ -89,16 +89,19 @@ namespace Zwift_CIQ_RC_Relay
     	
 		// End of structutres for sendinput
 		
-		static string ProgramVersion = "Version 00.01";
+		static string ProgramVersion = "Version 01.00";
+		
 	    static bool bDone;
 		static readonly byte USER_ANT_CHANNEL = 0;         // ANT Channel to use
-        static ushort USER_DEVICENUM = 0;       // Device number
+        static ushort USER_DEVICENUM = 0;       			// Device number
         static readonly byte USER_DEVICETYPE = 16;         // Device type = 16 - Generic Remote Control
         static readonly byte USER_TRANSTYPE = 5;           // Transmission type
         static readonly byte USER_RADIOFREQ = 57;          // RF Frequency + 2400 MHz
 		static readonly byte[] USER_NETWORK_KEY = { 0xB9, 0xA5, 0x21, 0xFB, 0xBD, 0x72, 0xC3, 0x45 };
         static readonly byte USER_NETWORK_NUM = 0;         // The network key is assigned to this network number
-
+        static readonly bool USER_PAIRINGENABLED = false;
+        static readonly uint USER_RESPONSEWAITTIME = 1000;
+        
         static ANT_Device device0;
         static ANT_Channel channel0;
         static GenericControllableDevice genericControllableDevice;
@@ -209,7 +212,8 @@ namespace Zwift_CIQ_RC_Relay
                 throw new Exception("Error configuring network key");
 
             Console.WriteLine("Setting Channel ID...");
-            if (channel0.setChannelID(USER_DEVICENUM, false, USER_DEVICETYPE, USER_TRANSTYPE, 500))  // Not using pairing bit
+            //channel0.setChannelTransmitPower(ANT_ReferenceLibrary.TransmitPower.RADIO_TX_POWER_0DB_0x03,500);
+            if (channel0.setChannelID(USER_DEVICENUM, USER_PAIRINGENABLED, USER_DEVICETYPE, USER_TRANSTYPE, USER_RESPONSEWAITTIME))  // Not using pairing bit
             	Console.WriteLine("Channel ID: " + channel0.getChannelNum());
             else
                 throw new Exception("Error configuring Channel ID");
@@ -242,7 +246,9 @@ namespace Zwift_CIQ_RC_Relay
             {
                 switch ((ANT_ReferenceLibrary.ANTMessageID)response.responseID)
                 {
-                    case ANT_ReferenceLibrary.ANTMessageID.RESPONSE_EVENT_0x40:
+                    // 0x40 = Channel Message
+                    
+                	case ANT_ReferenceLibrary.ANTMessageID.RESPONSE_EVENT_0x40:
                         {
                             switch (response.getChannelEventCode())
                             {
@@ -320,20 +326,22 @@ namespace Zwift_CIQ_RC_Relay
                             }
                             break;
                         }
-                    case ANT_ReferenceLibrary.ANTMessageID.BROADCAST_DATA_0x4E:
+	                case ANT_ReferenceLibrary.ANTMessageID.BROADCAST_DATA_0x4E:
                     case ANT_ReferenceLibrary.ANTMessageID.ACKNOWLEDGED_DATA_0x4F:
                     case ANT_ReferenceLibrary.ANTMessageID.BURST_DATA_0x50:
                     case ANT_ReferenceLibrary.ANTMessageID.EXT_BROADCAST_DATA_0x5D:
                     case ANT_ReferenceLibrary.ANTMessageID.EXT_ACKNOWLEDGED_DATA_0x5E:
+
                     case ANT_ReferenceLibrary.ANTMessageID.EXT_BURST_DATA_0x5F:
                         {
                 			// Process received messages here
-                            Console.WriteLine("Channel - ResponseID: " + response.responseID);
-                            //Console.WriteLine("Channel - MessageID: " + response.getMessageID());                        
+                			
+                            //Console.WriteLine("Channel - ResponseID: " + response.responseID);
+                        
                             byte[] Payload = new byte[8];
                             Payload = response.getDataPayload();
-                            Console.WriteLine("Channel - Payload[6]: " + Payload[6]);
-                            Console.WriteLine("Channel - Payload[7]: " + Payload[7]);
+                            //Console.WriteLine("Channel - Payload[6]: " + Payload[6]);
+                            //Console.WriteLine("Channel - Payload[7]: " + Payload[7]);
                             // Command Number: 0-65535
                             int CommandNumber = 0;
                             CommandNumber = BitConverter.ToUInt16(Payload,6);
@@ -575,7 +583,9 @@ namespace Zwift_CIQ_RC_Relay
         ////////////////////////////////////////////////////////////////////////////////
         static void DeviceResponse(ANT_Response response)
         {
-        	//Console.WriteLine("Processing Device Response: " + response.responseID );
+
+        	// Console.WriteLine("Processing Device Response: " + (ANT_ReferenceLibrary.ANTMessageID)response.responseID );
+
         	switch ((ANT_ReferenceLibrary.ANTMessageID)response.responseID)
             {
                 case ANT_ReferenceLibrary.ANTMessageID.STARTUP_MESG_0x6F:
@@ -605,7 +615,10 @@ namespace Zwift_CIQ_RC_Relay
                     }
                 case ANT_ReferenceLibrary.ANTMessageID.RESPONSE_EVENT_0x40:
                     {
-                        switch (response.getMessageID())
+
+        				// Console.WriteLine("getMessageID: " + (ANT_ReferenceLibrary.ANTMessageID)response.getMessageID() );
+
+        				switch (response.getMessageID())
                         {
                             case ANT_ReferenceLibrary.ANTMessageID.CLOSE_CHANNEL_0x4C:
                                 {
@@ -622,7 +635,8 @@ namespace Zwift_CIQ_RC_Relay
                                     }
                                     break;
                                 }
-                            case ANT_ReferenceLibrary.ANTMessageID.NETWORK_KEY_0x46:
+                        	case ANT_ReferenceLibrary.ANTMessageID.CHANNEL_RADIO_TX_POWER_0x60:
+                        	case ANT_ReferenceLibrary.ANTMessageID.NETWORK_KEY_0x46:
                             case ANT_ReferenceLibrary.ANTMessageID.ASSIGN_CHANNEL_0x42:
                             case ANT_ReferenceLibrary.ANTMessageID.CHANNEL_ID_0x51:
                             case ANT_ReferenceLibrary.ANTMessageID.CHANNEL_RADIO_FREQ_0x45:
