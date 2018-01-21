@@ -1,11 +1,12 @@
 ﻿/*
  * Created by SharpDevelop.
- * User: admin
- * Date: 18/12/2017
- * Time: 09:56
- * 
- * To change this template use Tools | Options | Coding | Edit Standard Headers.
  */
+
+// 
+// ANT:
+//
+//		* MASTER = Controlable Device
+//		* SLAVE = Remote Control
 
 using ANT_Managed_Library;
 using AntPlus.Profiles.Controls;
@@ -16,6 +17,9 @@ using System;
 using System.Text;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+
 //using System.Windows.Forms;
 //using System.Threading;
 //using WindowsInput;
@@ -27,10 +31,10 @@ namespace Zwift_CIQ_RC_Relay
 		[DllImport ("User32.dll")]
 		static extern int SetForegroundWindow(IntPtr point);
 
-		[DllImport("user32.dll", SetLastError = true)]
-        static extern IntPtr FindWindow(string lpClassName, string lpWindowName);
-		
-		[DllImport("user32.dll", SetLastError = true)]
+  		[DllImport("user32.dll")]
+  		static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);		
+
+  		[DllImport("user32.dll", SetLastError = true)]
 		private static extern uint SendInput(uint numberOfInputs, INPUT[] inputs, int sizeOfInputStructure);
 
 		// Structures for sendinput
@@ -89,16 +93,19 @@ namespace Zwift_CIQ_RC_Relay
     	
 		// End of structutres for sendinput
 		
-		static string ProgramVersion = "Version 01.00";
+		static string ProgramVersion = "Version 01.03";
 		
 	    static bool bDone;
-		static readonly byte USER_ANT_CHANNEL = 0;         // ANT Channel to use
+	    static bool bReset;
+	    
+	    
+		static readonly byte USER_ANT_CHANNEL = 0;         	// ANT Channel to use
         static ushort USER_DEVICENUM = 0;       			// Device number
-        static readonly byte USER_DEVICETYPE = 16;         // Device type = 16 - Generic Remote Control
-        static readonly byte USER_TRANSTYPE = 5;           // Transmission type
-        static readonly byte USER_RADIOFREQ = 57;          // RF Frequency + 2400 MHz
+        static readonly byte USER_DEVICETYPE = 16;         	// Device type = 16 - Generic Remote Control
+        static readonly byte USER_TRANSTYPE = 5;           	// Transmission type
+        static readonly byte USER_RADIOFREQ = 57;          	// RF Frequency + 2400 MHz
 		static readonly byte[] USER_NETWORK_KEY = { 0xB9, 0xA5, 0x21, 0xFB, 0xBD, 0x72, 0xC3, 0x45 };
-        static readonly byte USER_NETWORK_NUM = 0;         // The network key is assigned to this network number
+        static readonly byte USER_NETWORK_NUM = 0;         	// The network key is assigned to this network number
         static readonly bool USER_PAIRINGENABLED = false;
         static readonly uint USER_RESPONSEWAITTIME = 1000;
         
@@ -109,36 +116,76 @@ namespace Zwift_CIQ_RC_Relay
 
         public static void Main(string[] args)
 		{
-			Console.WriteLine("Zwift Garmin CIQ Remote Control Relay Program - " + ProgramVersion);
-
+			WriteLog("Zwift Garmin CIQ Remote Control Relay Program - " + ProgramVersion);
 			try
             {
-                Init();
-                Start();
+				AllocateUSBDongle();
+				Start();
             }
             catch (Exception ex)
             {
-                Console.WriteLine("Program failed with exception: \n" + ex.Message);
+                WriteLog("Program failed with exception: " + ex.Message);
+                WriteLog("Enter Q to exit");
+                Console.ReadLine();
             }
 
         }
 
-		static void Init()
+      
+		static async void Init()
         {
-            try
+
+			try
             {
-                Console.WriteLine("Connecting to ANT USB device...");
-                device0 = new ANT_Device();   // Create a device instance using the automatic constructor (automatic detection of USB device number and baud rate)
+                WriteLog("Connecting to ANT USB Dongle...");
+                //device0 = new ANT_Device();   // Create a device instance using the automatic constructor (automatic detection of USB device number and baud rate)
+
+                device0.serialError += new ANT_Device.dSerialErrorHandler(SerialError);
                 device0.deviceResponse += new ANT_Device.dDeviceResponseHandler(DeviceResponse);    // Add device response function to receive protocol event messages
+
                 channel0 = device0.getChannel(USER_ANT_CHANNEL);    // Get channel from ANT device
                 channel0.channelResponse += new dChannelResponseHandler(ChannelResponse);  // Add channel response function to receive channel event messages
-                Console.WriteLine("USB Dongle initialization successful");
-                Console.WriteLine("USB Dongle Device Number: " + device0.getOpenedUSBDeviceNum());
+
+                WriteLog("ANT USB Dongle initialization successful");
+                WriteLog("ANT USB Dongle Device Number: " + device0.getOpenedUSBDeviceNum());
+                WriteLog("ANT USB Dongle Serial Number: " + device0.getSerialNumber());
                 USER_DEVICENUM =  (ushort) device0.getOpenedUSBDeviceNum();
+
+                bReset = false;
+            	List<Task> tasks = new List<Task>();
+            	tasks.Add(Task.Factory.StartNew(() => 
+            	{
+					while (!bReset)
+            		{
+						WriteLog("Checking ANT USB Dongle...");
+						Byte[] bytes = new byte[8];
+						try
+						{
+							if (channel0.sendBroadcastData(bytes))
+							{
+								WriteLog("ANT USB Dongle is operationnal");
+							}
+							else
+							{
+								WriteLog("ANT USB Dongle is not operationnal");
+							}
+						}
+			            catch (Exception ex)
+			            {
+								WriteLog("Problem with ANT USB Dongle...");
+			            }
+						System.Threading.Thread.Sleep(5000);
+					}
+            	}));
+                await Task.WhenAll(tasks);
+
             }
             catch (Exception ex)
             {
-                if (device0 == null)    // Unable to connect to ANT
+				Console.WriteLine("Exception: " + ex);
+            }
+/*
+            	if (device0 == null)    // Unable to connect to ANT
                 {
                     throw new Exception("Could not connect to any ANT device.\n" +
                     "Details: \n   " + ex.Message);
@@ -148,6 +195,7 @@ namespace Zwift_CIQ_RC_Relay
                     throw new Exception("Error connecting to ANT device: " + ex.Message);
                 }
             }
+*/
         }
 
         static void Start()
@@ -155,10 +203,9 @@ namespace Zwift_CIQ_RC_Relay
             bDone = false;
 
             PrintMenu();
-
+    
             try
             {
-                ConfigureANT();
                 while (!bDone)
                 {
                     string command = Console.ReadLine();
@@ -170,26 +217,60 @@ namespace Zwift_CIQ_RC_Relay
                                 PrintMenu();
                                 break;
                             }
-                        case "Q":
+                        case "U":
+                        case "u":
+                            {
+                                DisplayUSBConfiguration();
+                                break;
+                            }
+                    	case "Q":
                         case "q":
                             {
                                 // Quit
-                                Console.WriteLine("Closing Channel");
-                                channel0.closeChannel();
-								System.Threading.Thread.Sleep(1000);
+                                Console.WriteLine(DateTime.Now + " - Closing Channel");
+                                bDone = true;
                                 break;
                             }
-                        default:
+                        case "A":
+                        case "a":
+                            {
+                                // Allocate USB Dongle
+                                AllocateUSBDongle();
+								break;
+                            }
+
+                    	case "R":
+                        case "r":
+                            {
+                                // Release USB Dongle
+                                ReleaseUSBDongle();
+								break;
+                            }
+                        case "S":
+                        case "s":
+                            {
+                                // Re-Init USB Dongle
+                                Byte[] bytes = new byte[8];
+                                channel0.sendBroadcastData(bytes);
+                                break;
+                            }
+
+                    	default:
                             {
                                 break;
                             }
                     }
                     System.Threading.Thread.Sleep(0);
                 }
+                
+                ReleaseUSBDongle();
                 // Clean up ANT
-                Console.WriteLine("Disconnecting ANT Dongle...");
-                ANT_Device.shutdownDeviceInstance(ref device0);  // Close down the device completely and completely shut down all communication
-                Console.WriteLine("Application has completed successfully!");
+                //Console.WriteLine("Disconnecting ANT USB Dongle...");
+                //ANT_Device.shutdownDeviceInstance(ref device0);  // Close down the device completely and completely shut down all communication
+
+                WriteLog("Application has completed successfully!");
+                System.Threading.Thread.Sleep(1000);
+               
                 return;
 
             }
@@ -201,34 +282,68 @@ namespace Zwift_CIQ_RC_Relay
         
         private static void ConfigureANT()
         {
-            Console.WriteLine("Resetting ANT device...");
+            WriteLog("Configuring ANT communication...");
+        	WriteLog("Resetting ANT USB Dongle...");
             device0.ResetSystem();     // Soft reset
             System.Threading.Thread.Sleep(500);    // Delay 500ms after a reset
 
-            Console.WriteLine("Setting ANT network key...");
+            WriteLog("Setting ANT network key...");
             if (device0.setNetworkKey(USER_NETWORK_NUM, USER_NETWORK_KEY, 500))
-                Console.WriteLine("ANT network key setting successful");
+                WriteLog("ANT network key setting successful");
             else
                 throw new Exception("Error configuring network key");
 
-            Console.WriteLine("Setting Channel ID...");
+            WriteLog("Setting Channel ID...");
             //channel0.setChannelTransmitPower(ANT_ReferenceLibrary.TransmitPower.RADIO_TX_POWER_0DB_0x03,500);
             if (channel0.setChannelID(USER_DEVICENUM, USER_PAIRINGENABLED, USER_DEVICETYPE, USER_TRANSTYPE, USER_RESPONSEWAITTIME))  // Not using pairing bit
-            	Console.WriteLine("Channel ID: " + channel0.getChannelNum());
+            	WriteLog("Channel ID: " + channel0.getChannelNum());
             else
                 throw new Exception("Error configuring Channel ID");
 
             genericControllableDevice = new GenericControllableDevice(channel0, networkAntPlus);
             genericControllableDevice.DataPageReceived += GenericControllableDevice_DataPageReceived;
             genericControllableDevice.TurnOn();
-            
+            //CheckUsbDongle();
         }
         
         private static void GenericControllableDevice_DataPageReceived(DataPage arg1)
         {
-              Console.WriteLine("DataPageReceived");
+              WriteLog("ANT DataPage Received - PageNumber = " + arg1.DataPageNumber);
+        }
+
+        
+        static void DeviceNotification(ANT_Device sender)
+        {
+        	Console.WriteLine(DateTime.Now + " - Processing DeviceNotification: ");        		
         }
         
+        
+        static void SerialError(ANT_Device sender, ANT_Managed_Library.ANT_Device.serialErrorCode error, bool isCritical)
+        {
+        	WriteLog("Processing SerialError: " + error);
+
+        	WriteLog("Trying to recover USB ANT Dongle...");
+        	
+        	device0 = null;
+        	channel0 = null;
+        	bReset = true;
+        	
+        	while(device0 == null)
+        	{
+	        	try
+	            {
+        			WriteLog("Trying to connect to USB ANT Dongle...");
+	        		device0 = new ANT_Device();
+	        	}
+	            catch (Exception ex)
+	            {
+	            }
+				System.Threading.Thread.Sleep(1000);
+        	}
+        	WriteLog("USB ANT Dongle has been recovered");
+        	Init();
+            ConfigureANT();
+        }
         
 		////////////////////////////////////////////////////////////////////////////////
         // ChannelResponse
@@ -239,7 +354,7 @@ namespace Zwift_CIQ_RC_Relay
         ////////////////////////////////////////////////////////////////////////////////
         static void ChannelResponse(ANT_Response response)
         {
-        	//Console.WriteLine("Processing Channel Response: " + response.responseID);
+        	//Console.WriteLine(DateTime.Now + " - Processing Channel Response: " + (ANT_ReferenceLibrary.ANTMessageID)response.responseID);
         	Random rnd = new Random();
 
             try
@@ -287,13 +402,13 @@ namespace Zwift_CIQ_RC_Relay
                                 case ANT_ReferenceLibrary.ANTEventID.EVENT_CHANNEL_CLOSED_0x07:
                                     {
                                         // This event should be used to determine that the channel is closed.
-                                        Console.WriteLine("Channel Closed");
+                                        Console.WriteLine(DateTime.Now + " - ANT Channel Closed");
                                         Console.WriteLine("Unassigning Channel...");
                                         if (channel0.unassignChannel(500))
                                         {
                                             Console.WriteLine("Unassigned Channel");
                                             //Console.WriteLine("Press enter to exit");
-                                            bDone = true;
+                                            //bDone = true;
                                         }
                                         break;
                                     }
@@ -312,7 +427,7 @@ namespace Zwift_CIQ_RC_Relay
                                         Console.WriteLine("Burst Started");
                                         break;
                                     }
-                                case ANT_ReferenceLibrary.ANTEventID.NO_EVENT_0x00:
+                               case ANT_ReferenceLibrary.ANTEventID.NO_EVENT_0x00:
                                     {
                                         Console.WriteLine("No_Event_0x00 - " + response.getChannelEventCode());
                                         break;
@@ -345,17 +460,21 @@ namespace Zwift_CIQ_RC_Relay
                             // Command Number: 0-65535
                             int CommandNumber = 0;
                             CommandNumber = BitConverter.ToUInt16(Payload,6);
-                            Console.WriteLine("Channel - CommandNumber: " + CommandNumber);
+
+                            WriteLog("Received CommandNumber: " + CommandNumber);
 
 							string processName = "ZwiftApp";
+							//string processName = "notepad";
+							
 							Process[] targetProcess = Process.GetProcessesByName(processName);
 							if (targetProcess.Length > 0)
 							{
-								Console.WriteLine(processName + " found");
+								WriteLog(processName + " found");
 								Process p = targetProcess[0];
 								IntPtr h = p.MainWindowHandle;
-    							SetForegroundWindow(h);
 
+								SetForegroundWindow(h);
+								
 			   				    INPUT[] inputs = new INPUT[1];
 							   	KEYBDINPUT kb = new KEYBDINPUT();
 								uint result;
@@ -383,6 +502,18 @@ namespace Zwift_CIQ_RC_Relay
 								// 32776 - Snapshot
 								// 32777 - SwitchView
 								// 32778 - ElbowFlick
+								//
+								// 32780 - 0 = View 0
+								// 32781 - 1 = View 1
+								// 32784 - 4 = View 4
+								// 32785 - 5 = View 5
+								// 32786 - 6 = View 6
+								// 32787 - 7 = View 7
+								// 32788 - 8 = View 8
+								// 32789 - 9 = View 9
+								// 32790 - Pg Up = FTP Bias Up
+								// 32791 - Pg Down = FTP Bias Down
+								// 32792 - Tab
 								//
 
    								ushort key_wScan = 0x50;
@@ -511,6 +642,24 @@ namespace Zwift_CIQ_RC_Relay
    											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
    											break;
    										}
+   									case 32790:
+   										{
+   											key_wScan = 0x49; // PgUp + Extended (E0) - FTP Bias Up
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode | KeyEventF.ExtendedKey);
+   											break;
+   										}
+   									case 32791:
+   										{
+   											key_wScan = 0x51; // PgDown + Extended (E0) - FTP Bias Down
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode | KeyEventF.ExtendedKey);
+   											break;
+   										}
+   									case 32792:
+   										{
+   											key_wScan = 0x0f; // Tab - Skip Block
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
+   											break;
+   										}
 
    									default:
    										{
@@ -518,8 +667,6 @@ namespace Zwift_CIQ_RC_Relay
    										}
    								}
    								
-   								//kb.wScan = 0; // hardware scan code for key
-
    								//kb.wScan = 0x01; // Esc
    					
    								//kb.wScan = 0x10; // A = Paired Device
@@ -528,16 +675,6 @@ namespace Zwift_CIQ_RC_Relay
    								//kb.wScan = 0x22; // G - HR-Power Graph
    								//kb.wScan = 0x44; // F10 = Screenshot
 
-   								//kb.wScan = 0x47; // 7 Numeric
-   								//kb.wScan = 0x48; // 8 Numeric
-   								//kb.wScan = 0x49; // 9 Numeric
-   								//kb.wScan = 0x4B; // 4 Numeric
-   								//kb.wScan = 0x4C; // 5 Numeric
-   								//kb.wScan = 0x4D; // 6 Numeric
-   								//kb.wScan = 0x4F; // 1 Numeric
-   								//kb.wScan = 0x50; // 2 Numeric
-   								//kb.wScan = 0x51; // 3 Numeric
-   								//kb.wScan = 0x52; // 0 Numeric
 
    								kb.wScan = key_wScan;
    								kb.dwFlags = key_dwFlags;
@@ -550,11 +687,10 @@ namespace Zwift_CIQ_RC_Relay
 							   	inputs[0].ki = kb;
 
 							   	result = SendInput(1, inputs, Marshal.SizeOf(inputs[0]));
-			   					Console.WriteLine("Result = " + result);
                             }
 							else
 							{
-                            		Console.WriteLine("Zwift Application not found");
+                            		WriteLog("Zwift Application not found");
 							}
 
                 		}
@@ -584,28 +720,23 @@ namespace Zwift_CIQ_RC_Relay
         static void DeviceResponse(ANT_Response response)
         {
 
-        	// Console.WriteLine("Processing Device Response: " + (ANT_ReferenceLibrary.ANTMessageID)response.responseID );
+        	//Console.WriteLine("Processing Device Response: " + (ANT_ReferenceLibrary.ANTMessageID)response.responseID );
 
         	switch ((ANT_ReferenceLibrary.ANTMessageID)response.responseID)
             {
                 case ANT_ReferenceLibrary.ANTMessageID.STARTUP_MESG_0x6F:
                     {
-                        Console.Write("RESET Complete, reason: ");
 
+        				String reason = "";
                         byte ucReason = response.messageContents[0];
 
-                        if (ucReason == (byte)ANT_ReferenceLibrary.StartupMessage.RESET_POR_0x00)
-                            Console.WriteLine("RESET_POR");
-                        if (ucReason == (byte)ANT_ReferenceLibrary.StartupMessage.RESET_RST_0x01)
-                            Console.WriteLine("RESET_RST");
-                        if (ucReason == (byte)ANT_ReferenceLibrary.StartupMessage.RESET_WDT_0x02)
-                            Console.WriteLine("RESET_WDT");
-                        if (ucReason == (byte)ANT_ReferenceLibrary.StartupMessage.RESET_CMD_0x20)
-                            Console.WriteLine("RESET_CMD");
-                        if (ucReason == (byte)ANT_ReferenceLibrary.StartupMessage.RESET_SYNC_0x40)
-                            Console.WriteLine("RESET_SYNC");
-                        if (ucReason == (byte)ANT_ReferenceLibrary.StartupMessage.RESET_SUSPEND_0x80)
-                            Console.WriteLine("RESET_SUSPEND");
+                        if (ucReason == (byte)ANT_ReferenceLibrary.StartupMessage.RESET_POR_0x00) reason = "RESET_POR";
+                        if (ucReason == (byte)ANT_ReferenceLibrary.StartupMessage.RESET_RST_0x01) reason = "RESET_RST";
+                        if (ucReason == (byte)ANT_ReferenceLibrary.StartupMessage.RESET_WDT_0x02) reason = "RESET_WDT";
+                        if (ucReason == (byte)ANT_ReferenceLibrary.StartupMessage.RESET_CMD_0x20) reason = "RESET_CMD";
+                        if (ucReason == (byte)ANT_ReferenceLibrary.StartupMessage.RESET_SYNC_0x40) reason = "RESET_SYNC";
+                        if (ucReason == (byte)ANT_ReferenceLibrary.StartupMessage.RESET_SUSPEND_0x80) reason = "RESET_SUSPEND";
+                        WriteLog("RESET Complete, reason: " + reason);
                         break;
                     }
                 case ANT_ReferenceLibrary.ANTMessageID.VERSION_0x3E:
@@ -617,10 +748,29 @@ namespace Zwift_CIQ_RC_Relay
                     {
 
         				// Console.WriteLine("getMessageID: " + (ANT_ReferenceLibrary.ANTMessageID)response.getMessageID() );
+						WriteLog(String.Format("Chanel Event Code = {0} - MessageID = {1}", response.getChannelEventCode(), response.getMessageID()));
 
-        				switch (response.getMessageID())
+						switch (response.getMessageID())
                         {
-                            case ANT_ReferenceLibrary.ANTMessageID.CLOSE_CHANNEL_0x4C:
+        					case ANT_ReferenceLibrary.ANTMessageID.BROADCAST_DATA_0x4E:
+        						{
+        							switch(response.getChannelEventCode())
+        							{
+        								case ANT_ReferenceLibrary.ANTEventID.CHANNEL_IN_WRONG_STATE_0x15:
+        									{
+        										break;
+        									}
+        								default:
+        									{
+												WriteLog(String.Format("Chanel Event Code {0} MessageID {1}", response.getChannelEventCode(), response.getMessageID()));
+												break;
+        									}
+        							}
+        							break;
+        						}
+        						
+        						
+        					case ANT_ReferenceLibrary.ANTMessageID.CLOSE_CHANNEL_0x4C:
                                 {
                                     if (response.getChannelEventCode() == ANT_ReferenceLibrary.ANTEventID.CHANNEL_IN_WRONG_STATE_0x15)
                                     {
@@ -630,27 +780,28 @@ namespace Zwift_CIQ_RC_Relay
                                         {
                                             Console.WriteLine("Unassigned Channel");
                                             //Console.WriteLine("Press enter to exit");
-                                            bDone = true;
+                                            //bDone = true;
                                         }
                                     }
                                     break;
                                 }
-                        	case ANT_ReferenceLibrary.ANTMessageID.CHANNEL_RADIO_TX_POWER_0x60:
-                        	case ANT_ReferenceLibrary.ANTMessageID.NETWORK_KEY_0x46:
-                            case ANT_ReferenceLibrary.ANTMessageID.ASSIGN_CHANNEL_0x42:
-                            case ANT_ReferenceLibrary.ANTMessageID.CHANNEL_ID_0x51:
-                            case ANT_ReferenceLibrary.ANTMessageID.CHANNEL_RADIO_FREQ_0x45:
-                            case ANT_ReferenceLibrary.ANTMessageID.CHANNEL_MESG_PERIOD_0x43:
-                            case ANT_ReferenceLibrary.ANTMessageID.OPEN_CHANNEL_0x4B:
                             case ANT_ReferenceLibrary.ANTMessageID.UNASSIGN_CHANNEL_0x41:
-                                {
+        					case ANT_ReferenceLibrary.ANTMessageID.ASSIGN_CHANNEL_0x42:
+                            case ANT_ReferenceLibrary.ANTMessageID.CHANNEL_MESG_PERIOD_0x43:
+                            case ANT_ReferenceLibrary.ANTMessageID.CHANNEL_RADIO_FREQ_0x45:
+        					case ANT_ReferenceLibrary.ANTMessageID.NETWORK_KEY_0x46:
+                            case ANT_ReferenceLibrary.ANTMessageID.OPEN_CHANNEL_0x4B:
+                            case ANT_ReferenceLibrary.ANTMessageID.CHANNEL_ID_0x51:
+        					case ANT_ReferenceLibrary.ANTMessageID.CHANNEL_RADIO_TX_POWER_0x60:
+        						{
                                     if (response.getChannelEventCode() != ANT_ReferenceLibrary.ANTEventID.RESPONSE_NO_ERROR_0x00)
                                     {
                                         Console.WriteLine(String.Format("Error {0} configuring {1}", response.getChannelEventCode(), response.getMessageID()));
                                     }
                                     break;
                                 }
-                            case ANT_ReferenceLibrary.ANTMessageID.RX_EXT_MESGS_ENABLE_0x66:
+
+        					case ANT_ReferenceLibrary.ANTMessageID.RX_EXT_MESGS_ENABLE_0x66:
                                 {
                                     if (response.getChannelEventCode() == ANT_ReferenceLibrary.ANTEventID.INVALID_MESSAGE_0x28)
                                     {
@@ -690,12 +841,58 @@ namespace Zwift_CIQ_RC_Relay
             // Print out options
             //
             Console.WriteLine("Available commands:");
-            Console.WriteLine("  M - Print this menu");
-            Console.WriteLine("  Q - Quit");
+            Console.WriteLine(" M - Menu");
+            Console.WriteLine(" A - Allocate USB ANT Dongle");
+            Console.WriteLine(" R - Release USB ANT Dongle");
+            Console.WriteLine(" U - USB Configuration");
+            Console.WriteLine(" Q - Quit");
             //Console.WriteLine("C - Request Capabilities");
             //Console.WriteLine("V - Request Version");
             //Console.WriteLine("I - Request Channel ID");
-            //Console.WriteLine("U - Request USB Descriptor");
+        }
+
+        static void DisplayUSBConfiguration()
+        {
+			WriteLog("ANT USB Dongle - Device Number: " + device0.getOpenedUSBDeviceNum());
+			WriteLog("ANT USB Dongle - Serial Number: " + device0.getSerialNumber());
+        }
+        
+        static void ReleaseUSBDongle()
+        {
+        	WriteLog("Releasing USB ANT Dongle...");
+        	try
+        	{
+	        	channel0.closeChannel();
+				System.Threading.Thread.Sleep(1000);
+				device0.ResetSystem();
+				device0.ResetUSB();
+				ANT_Device.shutdownDeviceInstance(ref device0);
+        	}
+            catch (Exception ex)
+            {
+                WriteLog("USB ANT Dongle is already released !");
+            }
+        }
+
+        static void AllocateUSBDongle()
+        {
+        	WriteLog("Allocating USB ANT Dongle...");
+        	try
+        	{
+				device0 = new ANT_Device();
+				Init();
+	            ConfigureANT();
+        	}
+            catch (Exception ex)
+            {
+                WriteLog("USB ANT Dongle is already allocated !");
+            }
+        }
+
+        
+        static void WriteLog(String message)
+        {
+			Console.WriteLine(DateTime.Now + " - " + message);
         }
         
 	}
