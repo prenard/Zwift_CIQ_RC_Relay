@@ -93,7 +93,7 @@ namespace Zwift_CIQ_RC_Relay
     	
 		// End of structutres for sendinput
 		
-		static string ProgramVersion = "Version 01.03";
+		static string ProgramVersion = "Version 01.06";
 		
 	    static bool bDone;
 	    static bool bReset;
@@ -502,7 +502,7 @@ namespace Zwift_CIQ_RC_Relay
 								// 32776 - Snapshot
 								// 32777 - SwitchView
 								// 32778 - ElbowFlick
-								//
+								// 32779 - ANT Devices Pairing
 								// 32780 - 0 = View 0
 								// 32781 - 1 = View 1
 								// 32784 - 4 = View 4
@@ -559,7 +559,7 @@ namespace Zwift_CIQ_RC_Relay
    										}
    									case 32774:
    										{
-   											key_wScan = 0x22; // G
+   											key_wScan = 0x22; // G = US-G = 0x22 - Azerty / Qwerty
    											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
    											break;
    										}
@@ -581,7 +581,12 @@ namespace Zwift_CIQ_RC_Relay
    											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
    											break;
    										}
-
+   									case 32779:
+   										{
+   											key_wScan = 0x10; // A = US-Q = 0x10 - Azerty / Qwerty
+   											key_dwFlags = (uint) (KeyEventF.KeyDown | KeyEventF.ScanCode);
+   											break;
+   										}
    									case 32780:
    										{
    											key_wScan = 0x52; // Num 0 - View 0

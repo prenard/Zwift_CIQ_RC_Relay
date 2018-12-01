@@ -19,3 +19,12 @@ W:\save-w\softs-conf\Garmin\Connect-IQ\workplace\my-Sharp-workplace\Zwift-CIQ-RC
 W:\save-w\softs-conf\Garmin\Connect-IQ\workplace\my-Sharp-workplace\Zwift-CIQ-RC-Relay_gtit-repo\obj\Debug\Zwift-CIQ-RC-Relay.csprojResolveAssemblyReference.cache
 W:\save-w\softs-conf\Garmin\Connect-IQ\workplace\my-Sharp-workplace\Zwift-CIQ-RC-Relay_gtit-repo\obj\Debug\Zwift-CIQ-RC-Relay.exe
 W:\save-w\softs-conf\Garmin\Connect-IQ\workplace\my-Sharp-workplace\Zwift-CIQ-RC-Relay_gtit-repo\obj\Debug\Zwift-CIQ-RC-Relay.pdb
+D:\save-w\softs-conf\Garmin-CIQ\workplace\my-Sharp-workplace\Zwift-CIQ-RC-Relay\bin\Debug\Zwift-CIQ-RC-Relay.exe.config
+D:\save-w\softs-conf\Garmin-CIQ\workplace\my-Sharp-workplace\Zwift-CIQ-RC-Relay\bin\Debug\Zwift-CIQ-RC-Relay.exe
+D:\save-w\softs-conf\Garmin-CIQ\workplace\my-Sharp-workplace\Zwift-CIQ-RC-Relay\bin\Debug\Zwift-CIQ-RC-Relay.pdb
+D:\save-w\softs-conf\Garmin-CIQ\workplace\my-Sharp-workplace\Zwift-CIQ-RC-Relay\bin\Debug\Fit.dll
+D:\save-w\softs-conf\Garmin-CIQ\workplace\my-Sharp-workplace\Zwift-CIQ-RC-Relay\bin\Debug\InputSimulator.pdb
+D:\save-w\softs-conf\Garmin-CIQ\workplace\my-Sharp-workplace\Zwift-CIQ-RC-Relay\bin\Debug\InputSimulator.xml
+D:\save-w\softs-conf\Garmin-CIQ\workplace\my-Sharp-workplace\Zwift-CIQ-RC-Relay\obj\Debug\Zwift-CIQ-RC-Relay.csprojResolveAssemblyReference.cache
+D:\save-w\softs-conf\Garmin-CIQ\workplace\my-Sharp-workplace\Zwift-CIQ-RC-Relay\obj\Debug\Zwift-CIQ-RC-Relay.exe
+D:\save-w\softs-conf\Garmin-CIQ\workplace\my-Sharp-workplace\Zwift-CIQ-RC-Relay\obj\Debug\Zwift-CIQ-RC-Relay.pdb
